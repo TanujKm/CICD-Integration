@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EmployeeRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management-demo</a> &gt; <a href="index.source.html" class="el_package">com.pdlc.demo.repository</a> &gt; <span class="el_source">EmployeeRepository.java</span></div><h1>EmployeeRepository.java</h1><pre class="source lang-java linenums">package com.pdlc.demo.repository;
+
+import com.pdlc.demo.model.Employee;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * In-memory repository simulating a database layer.
+ * Kept in-memory intentionally so the demo project has zero external
+ * dependencies (no real DB/driver required) while still modelling a
+ * realistic layered architecture (model -&gt; repository -&gt; service -&gt; web).
+ */
+<span class="fc" id="L17">public class EmployeeRepository {</span>
+
+<span class="fc" id="L19">    private final Map&lt;Integer, Employee&gt; store = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L20">    private int nextId = 1;</span>
+
+    public Employee save(Employee employee) {
+<span class="pc bpc" id="L23" title="1 of 2 branches missed.">        if (employee.getId() == 0) {</span>
+<span class="fc" id="L24">            employee.setId(nextId++);</span>
+        }
+<span class="fc" id="L26">        store.put(employee.getId(), employee);</span>
+<span class="fc" id="L27">        return employee;</span>
+    }
+
+    public Optional&lt;Employee&gt; findById(int id) {
+<span class="fc" id="L31">        return Optional.ofNullable(store.get(id));</span>
+    }
+
+    public List&lt;Employee&gt; findAll() {
+<span class="fc" id="L35">        return new ArrayList&lt;&gt;(store.values());</span>
+    }
+
+    public boolean existsByEmail(String email) {
+<span class="fc" id="L39">        return store.values().stream()</span>
+<span class="fc" id="L40">                .anyMatch(e -&gt; e.getEmail().equalsIgnoreCase(email));</span>
+    }
+
+    public boolean deleteById(int id) {
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">        return store.remove(id) != null;</span>
+    }
+
+    public void clear() {
+<span class="nc" id="L48">        store.clear();</span>
+<span class="nc" id="L49">        nextId = 1;</span>
+<span class="nc" id="L50">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EmployeeService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management-demo</a> &gt; <a href="index.source.html" class="el_package">com.pdlc.demo.service</a> &gt; <span class="el_source">EmployeeService.java</span></div><h1>EmployeeService.java</h1><pre class="source lang-java linenums">package com.pdlc.demo.service;
+
+import com.pdlc.demo.model.Employee;
+import com.pdlc.demo.repository.EmployeeRepository;
+import com.pdlc.demo.util.ValidationUtil;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Business logic layer — validates input, enforces business rules,
+ * and coordinates with the repository layer.
+ */
+public class EmployeeService {
+
+    private final EmployeeRepository repository;
+    private final ValidationUtil validationUtil;
+
+<span class="fc" id="L20">    public EmployeeService(EmployeeRepository repository, ValidationUtil validationUtil) {</span>
+<span class="fc" id="L21">        this.repository = repository;</span>
+<span class="fc" id="L22">        this.validationUtil = validationUtil;</span>
+<span class="fc" id="L23">    }</span>
+
+    public Employee addEmployee(String name, String email, String department, double salary) {
+<span class="pc bpc" id="L26" title="1 of 2 branches missed.">        if (!validationUtil.isValidName(name)) {</span>
+<span class="nc" id="L27">            throw new IllegalArgumentException(&quot;Invalid employee name&quot;);</span>
+        }
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        if (!validationUtil.isValidEmail(email)) {</span>
+<span class="fc" id="L30">            throw new IllegalArgumentException(&quot;Invalid email address&quot;);</span>
+        }
+<span class="fc bfc" id="L32" title="All 2 branches covered.">        if (!validationUtil.isValidSalary(salary)) {</span>
+<span class="fc" id="L33">            throw new IllegalArgumentException(&quot;Salary must be greater than zero&quot;);</span>
+        }
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (repository.existsByEmail(email)) {</span>
+<span class="fc" id="L36">            throw new IllegalArgumentException(&quot;An employee with this email already exists&quot;);</span>
+        }
+
+<span class="fc" id="L39">        Employee employee = new Employee(0, name, email, department, salary);</span>
+<span class="fc" id="L40">        return repository.save(employee);</span>
+    }
+
+    public List&lt;Employee&gt; getAllEmployeesSortedByName() {
+<span class="fc" id="L44">        return repository.findAll().stream()</span>
+<span class="fc" id="L45">                .sorted(Comparator.comparing(Employee::getName, String.CASE_INSENSITIVE_ORDER))</span>
+<span class="fc" id="L46">                .collect(Collectors.toList());</span>
+    }
+
+    public boolean deleteEmployee(int id) {
+<span class="fc" id="L50">        return repository.deleteById(id);</span>
+    }
+
+    /**
+     * Calculates annual bonus for an employee based on a percentage of salary.
+     * Business rule: bonus percentage must be between 0 and 50 (inclusive).
+     */
+    public double calculateAnnualBonus(Employee employee, double bonusPercentage) {
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (employee == null) {</span>
+<span class="fc" id="L59">            throw new IllegalArgumentException(&quot;Employee cannot be null&quot;);</span>
+        }
+<span class="fc bfc" id="L61" title="All 4 branches covered.">        if (bonusPercentage &lt; 0 || bonusPercentage &gt; 50) {</span>
+<span class="fc" id="L62">            throw new IllegalArgumentException(&quot;Bonus percentage must be between 0 and 50&quot;);</span>
+        }
+<span class="fc" id="L64">        return employee.getSalary() * (bonusPercentage / 100.0);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

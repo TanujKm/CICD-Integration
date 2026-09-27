@@ -1,0 +1,6 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+employee-management-demo,com.pdlc.demo.model,Employee,34,63,2,4,6,22,6,11,4,10
+employee-management-demo,com.pdlc.demo.web,WebServer,44,340,2,14,10,78,3,13,1,7
+employee-management-demo,com.pdlc.demo.util,ValidationUtil,0,40,1,11,0,8,1,10,0,5
+employee-management-demo,com.pdlc.demo.repository,EmployeeRepository,8,70,2,2,3,12,3,7,1,7
+employee-management-demo,com.pdlc.demo.service,EmployeeService,5,102,1,13,1,22,1,11,0,5

@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.pdlc.demo.ui.EmployeeListPageSeleniumTest
+-------------------------------------------------------------------------------
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 18.41 s -- in com.pdlc.demo.ui.EmployeeListPageSeleniumTest

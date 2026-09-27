@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Employee Management — Demo</title>
+</head>
+<body>
+    <h1>Employee List</h1>
+    <a href="/add-employee.html">Add New Employee</a>
+
+    <table id="employeeTable" border="1" cellpadding="8">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Department</th>
+                <th>Salary</th>
+            </tr>
+        </thead>
+        <tbody id="employeeTableBody">
+        </tbody>
+    </table>
+
+    <script>
+        fetch("/api/employees")
+            .then(response => response.json())
+            .then(employees => {
+                const tbody = document.getElementById("employeeTableBody");
+                employees.forEach(emp => {
+                    const row = document.createElement("tr");
+                    row.className = "employee-row";
+                    row.innerHTML =
+                        "<td>" + emp.id + "</td>" +
+                        "<td class='emp-name'>" + emp.name + "</td>" +
+                        "<td>" + emp.email + "</td>" +
+                        "<td>" + emp.department + "</td>" +
+                        "<td>" + emp.salary + "</td>";
+                    tbody.appendChild(row);
+                });
+            });
+    </script>
+</body>
+</html>

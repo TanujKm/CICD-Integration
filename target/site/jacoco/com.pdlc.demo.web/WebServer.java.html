@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WebServer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management-demo</a> &gt; <a href="index.source.html" class="el_package">com.pdlc.demo.web</a> &gt; <span class="el_source">WebServer.java</span></div><h1>WebServer.java</h1><pre class="source lang-java linenums">package com.pdlc.demo.web;
+
+import com.pdlc.demo.model.Employee;
+import com.pdlc.demo.repository.EmployeeRepository;
+import com.pdlc.demo.service.EmployeeService;
+import com.pdlc.demo.util.ValidationUtil;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Lightweight HTTP server (JDK built-in com.sun.net.httpserver — no
+ * external web framework dependency) exposing:
+ *   GET  /                    -&gt; employee list page
+ *   GET  /add-employee.html   -&gt; add employee form page
+ *   GET  /api/employees       -&gt; JSON list of employees
+ *   POST /api/employees       -&gt; add a new employee (form-encoded body)
+ *
+ * Kept dependency-free intentionally so the project builds without
+ * network access to a Maven repository for a full framework.
+ */
+public class WebServer {
+
+    private final HttpServer server;
+    private final EmployeeService employeeService;
+
+<span class="fc" id="L35">    public WebServer(int port, EmployeeService employeeService) throws IOException {</span>
+<span class="fc" id="L36">        this.employeeService = employeeService;</span>
+<span class="fc" id="L37">        server = HttpServer.create(new InetSocketAddress(port), 0);</span>
+<span class="fc" id="L38">        server.createContext(&quot;/api/employees&quot;, this::handleEmployeesApi);</span>
+<span class="fc" id="L39">        server.createContext(&quot;/&quot;, this::handleStaticFiles);</span>
+<span class="fc" id="L40">    }</span>
+
+    private void handleEmployeesApi(HttpExchange exchange) throws IOException {
+<span class="fc" id="L43">        String method = exchange.getRequestMethod();</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (method.equalsIgnoreCase(&quot;GET&quot;)) {</span>
+<span class="fc" id="L45">            List&lt;Employee&gt; employees = employeeService.getAllEmployeesSortedByName();</span>
+<span class="fc" id="L46">            String json = toJsonArray(employees);</span>
+<span class="fc" id="L47">            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);</span>
+<span class="fc" id="L48">            exchange.getResponseHeaders().add(&quot;Content-Type&quot;, &quot;application/json&quot;);</span>
+<span class="fc" id="L49">            exchange.sendResponseHeaders(200, bytes.length);</span>
+<span class="fc" id="L50">            exchange.getResponseBody().write(bytes);</span>
+<span class="fc" id="L51">            exchange.getResponseBody().close();</span>
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">        } else if (method.equalsIgnoreCase(&quot;POST&quot;)) {</span>
+<span class="fc" id="L53">            Map&lt;String, String&gt; params = parseFormBody(exchange);</span>
+            try {
+<span class="fc" id="L55">                Employee saved = employeeService.addEmployee(</span>
+<span class="fc" id="L56">                        params.get(&quot;name&quot;),</span>
+<span class="fc" id="L57">                        params.get(&quot;email&quot;),</span>
+<span class="fc" id="L58">                        params.get(&quot;department&quot;),</span>
+<span class="fc" id="L59">                        Double.parseDouble(params.getOrDefault(&quot;salary&quot;, &quot;0&quot;))</span>
+                );
+<span class="fc" id="L61">                String response = &quot;{\&quot;status\&quot;:\&quot;success\&quot;,\&quot;id\&quot;:&quot; + saved.getId() + &quot;}&quot;;</span>
+<span class="fc" id="L62">                byte[] bytes = response.getBytes(StandardCharsets.UTF_8);</span>
+<span class="fc" id="L63">                exchange.getResponseHeaders().add(&quot;Content-Type&quot;, &quot;application/json&quot;);</span>
+<span class="fc" id="L64">                exchange.sendResponseHeaders(200, bytes.length);</span>
+<span class="fc" id="L65">                exchange.getResponseBody().write(bytes);</span>
+<span class="fc" id="L66">            } catch (IllegalArgumentException ex) {</span>
+<span class="fc" id="L67">                String response = &quot;{\&quot;status\&quot;:\&quot;error\&quot;,\&quot;message\&quot;:\&quot;&quot; + ex.getMessage() + &quot;\&quot;}&quot;;</span>
+<span class="fc" id="L68">                byte[] bytes = response.getBytes(StandardCharsets.UTF_8);</span>
+<span class="fc" id="L69">                exchange.getResponseHeaders().add(&quot;Content-Type&quot;, &quot;application/json&quot;);</span>
+<span class="fc" id="L70">                exchange.sendResponseHeaders(400, bytes.length);</span>
+<span class="fc" id="L71">                exchange.getResponseBody().write(bytes);</span>
+            } finally {
+<span class="fc" id="L73">                exchange.getResponseBody().close();</span>
+            }
+<span class="fc" id="L75">        } else {</span>
+<span class="nc" id="L76">            exchange.sendResponseHeaders(405, -1);</span>
+        }
+<span class="fc" id="L78">    }</span>
+
+    private void handleStaticFiles(HttpExchange exchange) throws IOException {
+<span class="fc" id="L81">        String path = exchange.getRequestURI().getPath();</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        if (path.equals(&quot;/&quot;)) {</span>
+<span class="fc" id="L83">            path = &quot;/index.html&quot;;</span>
+        }
+<span class="fc" id="L85">        String resourcePath = &quot;static&quot; + path;</span>
+
+<span class="fc" id="L87">        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            if (is == null) {</span>
+<span class="fc" id="L89">                String notFound = &quot;404 Not Found&quot;;</span>
+<span class="fc" id="L90">                exchange.sendResponseHeaders(404, notFound.length());</span>
+<span class="fc" id="L91">                exchange.getResponseBody().write(notFound.getBytes());</span>
+<span class="fc" id="L92">            } else {</span>
+<span class="fc" id="L93">                byte[] bytes = is.readAllBytes();</span>
+<span class="fc" id="L94">                exchange.getResponseHeaders().add(&quot;Content-Type&quot;, &quot;text/html&quot;);</span>
+<span class="fc" id="L95">                exchange.sendResponseHeaders(200, bytes.length);</span>
+<span class="fc" id="L96">                exchange.getResponseBody().write(bytes);</span>
+            }
+        } finally {
+<span class="fc" id="L99">            exchange.getResponseBody().close();</span>
+        }
+<span class="fc" id="L101">    }</span>
+
+    private Map&lt;String, String&gt; parseFormBody(HttpExchange exchange) throws IOException {
+<span class="fc" id="L104">        InputStream is = exchange.getRequestBody();</span>
+<span class="fc" id="L105">        String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);</span>
+<span class="fc" id="L106">        Map&lt;String, String&gt; params = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        for (String pair : body.split(&quot;&amp;&quot;)) {</span>
+<span class="fc" id="L108">            String[] kv = pair.split(&quot;=&quot;, 2);</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">            if (kv.length == 2) {</span>
+<span class="fc" id="L110">                params.put(</span>
+<span class="fc" id="L111">                        URLDecoder.decode(kv[0], StandardCharsets.UTF_8),</span>
+<span class="fc" id="L112">                        URLDecoder.decode(kv[1], StandardCharsets.UTF_8)</span>
+                );
+            }
+        }
+<span class="fc" id="L116">        return params;</span>
+    }
+
+    private String toJsonArray(List&lt;Employee&gt; employees) {
+<span class="fc" id="L120">        StringBuilder sb = new StringBuilder(&quot;[&quot;);</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        for (int i = 0; i &lt; employees.size(); i++) {</span>
+<span class="fc" id="L122">            Employee e = employees.get(i);</span>
+<span class="fc" id="L123">            sb.append(&quot;{\&quot;id\&quot;:&quot;).append(e.getId())</span>
+<span class="fc" id="L124">              .append(&quot;,\&quot;name\&quot;:\&quot;&quot;).append(e.getName()).append(&quot;\&quot;&quot;)</span>
+<span class="fc" id="L125">              .append(&quot;,\&quot;email\&quot;:\&quot;&quot;).append(e.getEmail()).append(&quot;\&quot;&quot;)</span>
+<span class="fc" id="L126">              .append(&quot;,\&quot;department\&quot;:\&quot;&quot;).append(e.getDepartment()).append(&quot;\&quot;&quot;)</span>
+<span class="fc" id="L127">              .append(&quot;,\&quot;salary\&quot;:&quot;).append(e.getSalary())</span>
+<span class="fc" id="L128">              .append(&quot;}&quot;);</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">            if (i &lt; employees.size() - 1) sb.append(&quot;,&quot;);</span>
+        }
+<span class="fc" id="L131">        sb.append(&quot;]&quot;);</span>
+<span class="fc" id="L132">        return sb.toString();</span>
+    }
+
+    public void start() {
+<span class="fc" id="L136">        server.start();</span>
+<span class="fc" id="L137">    }</span>
+
+    public void stop() {
+<span class="fc" id="L140">        server.stop(0);</span>
+<span class="fc" id="L141">    }</span>
+
+    public static void main(String[] args) throws IOException {
+<span class="nc" id="L144">        EmployeeRepository repository = new EmployeeRepository();</span>
+<span class="nc" id="L145">        ValidationUtil validationUtil = new ValidationUtil();</span>
+<span class="nc" id="L146">        EmployeeService service = new EmployeeService(repository, validationUtil);</span>
+
+        // Seed a couple of sample employees so the list page isn't empty on first run
+<span class="nc" id="L149">        service.addEmployee(&quot;Aditi Sharma&quot;, &quot;aditi.sharma@example.com&quot;, &quot;QA&quot;, 55000);</span>
+<span class="nc" id="L150">        service.addEmployee(&quot;Rohan Mehta&quot;, &quot;rohan.mehta@example.com&quot;, &quot;Engineering&quot;, 72000);</span>
+
+<span class="nc" id="L152">        WebServer webServer = new WebServer(8080, service);</span>
+<span class="nc" id="L153">        webServer.start();</span>
+<span class="nc" id="L154">        System.out.println(&quot;Employee Management demo running at http://localhost:8080&quot;);</span>
+<span class="nc" id="L155">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

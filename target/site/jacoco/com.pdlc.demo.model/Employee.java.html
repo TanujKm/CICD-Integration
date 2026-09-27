@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Employee.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management-demo</a> &gt; <a href="index.source.html" class="el_package">com.pdlc.demo.model</a> &gt; <span class="el_source">Employee.java</span></div><h1>Employee.java</h1><pre class="source lang-java linenums">package com.pdlc.demo.model;
+
+import java.util.Objects;
+
+/**
+ * Domain model representing an Employee.
+ */
+public class Employee {
+
+    private int id;
+    private String name;
+    private String email;
+    private String department;
+    private double salary;
+
+<span class="fc" id="L16">    public Employee(int id, String name, String email, String department, double salary) {</span>
+<span class="fc" id="L17">        this.id = id;</span>
+<span class="fc" id="L18">        this.name = name;</span>
+<span class="fc" id="L19">        this.email = email;</span>
+<span class="fc" id="L20">        this.department = department;</span>
+<span class="fc" id="L21">        this.salary = salary;</span>
+<span class="fc" id="L22">    }</span>
+
+    public int getId() {
+<span class="fc" id="L25">        return id;</span>
+    }
+
+    public void setId(int id) {
+<span class="fc" id="L29">        this.id = id;</span>
+<span class="fc" id="L30">    }</span>
+
+    public String getName() {
+<span class="fc" id="L33">        return name;</span>
+    }
+
+    public void setName(String name) {
+<span class="nc" id="L37">        this.name = name;</span>
+<span class="nc" id="L38">    }</span>
+
+    public String getEmail() {
+<span class="fc" id="L41">        return email;</span>
+    }
+
+    public void setEmail(String email) {
+<span class="nc" id="L45">        this.email = email;</span>
+<span class="nc" id="L46">    }</span>
+
+    public String getDepartment() {
+<span class="fc" id="L49">        return department;</span>
+    }
+
+    public void setDepartment(String department) {
+<span class="fc" id="L53">        this.department = department;</span>
+<span class="fc" id="L54">    }</span>
+
+    public double getSalary() {
+<span class="fc" id="L57">        return salary;</span>
+    }
+
+    public void setSalary(double salary) {
+<span class="fc" id="L61">        this.salary = salary;</span>
+<span class="fc" id="L62">    }</span>
+
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (this == o) return true;</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        if (!(o instanceof Employee)) return false;</span>
+<span class="fc" id="L68">        Employee employee = (Employee) o;</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        return id == employee.id;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L74">        return Objects.hash(id);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L79">        return &quot;Employee{id=&quot; + id + &quot;, name='&quot; + name + &quot;', email='&quot; + email</span>
+                + &quot;', department='&quot; + department + &quot;', salary=&quot; + salary + &quot;}&quot;;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
