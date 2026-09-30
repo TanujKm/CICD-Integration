@@ -2,9 +2,9 @@ name: PDLC Quality Pipeline
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, IIntegration ]
   push:
-    branches: [ main ]
+    branches: [ main, IIntegration ]
 
 env:
   JAVA_VERSION: '17'
