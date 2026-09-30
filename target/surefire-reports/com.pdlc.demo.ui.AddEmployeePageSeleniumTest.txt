@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.pdlc.demo.ui.AddEmployeePageSeleniumTest
 -------------------------------------------------------------------------------
-Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 38.16 s -- in com.pdlc.demo.ui.AddEmployeePageSeleniumTest
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 13.66 s -- in com.pdlc.demo.ui.AddEmployeePageSeleniumTest
