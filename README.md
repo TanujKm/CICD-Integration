@@ -97,3 +97,8 @@ mvn compile exec:java -Dexec.mainClass="com.pdlc.demo.web.WebServer"
   covers every testing concern named in Section 5 of the document.
 - Fully self-built and explainable — no unfamiliar third-party code.
 - Zero cost, zero licensing concerns, no pre-existing CI/CD to strip out.
+
+
+
+## Status
+Pipeline configured with SonarCloud integration.
