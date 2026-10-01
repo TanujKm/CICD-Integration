@@ -102,6 +102,20 @@
                 </configuration>
             </plugin>
 
+            <!-- makes JAR executable: java -jar target/employee-management-demo-1.0.0.jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.pdlc.demo.web.WebServer</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
             <!--
                 SonarQube/SonarCloud (sonar-maven-plugin) and any Jira sync
                 are intentionally NOT wired in here — no CI/CD tooling is

@@ -91,9 +91,12 @@ jobs:
 
       - name: Start server on port 8083
         run: |
-          java -cp target/classes:$(mvn -q dependency:build-classpath -Dmdep.outputFile=/dev/stdout 2>/dev/null) \
-            com.pdlc.demo.web.WebServer &
+          JAR=$(ls target/*.jar | head -1)
+          echo "Starting server using JAR: $JAR"
+          java -jar $JAR &
           echo "SERVER_PID=$!" >> $GITHUB_ENV
+          sleep 3
+          echo "Server started"
 
       - name: Wait for server
         run: |
