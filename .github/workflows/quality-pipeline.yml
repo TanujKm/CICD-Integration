@@ -101,7 +101,7 @@ jobs:
       - name: Wait for server
         run: |
           for i in $(seq 1 15); do
-            if curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/api/employees | grep -q "200"; then
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/employees | grep -q "200"; then
               echo "server ready"
               break
             fi
@@ -110,7 +110,7 @@ jobs:
 
       - name: GET /api/employees should return 200
         run: |
-          STATUS=$(curl -s -o /tmp/res.json -w "%{http_code}" http://localhost:8083/api/employees)
+          STATUS=$(curl -s -o /tmp/res.json -w "%{http_code}" http://localhost:8080/api/employees)
           BODY=$(cat /tmp/res.json)
           echo "status: $STATUS"
           echo "body: $BODY"
@@ -120,7 +120,7 @@ jobs:
       - name: POST /api/employees should add employee
         run: |
           STATUS=$(curl -s -o /tmp/res.json -w "%{http_code}" \
-            -X POST http://localhost:8083/api/employees \
+            -X POST http://localhost:8080/api/employees \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "name=Test+User&email=test.user@example.com&department=QA&salary=50000")
           BODY=$(cat /tmp/res.json)
@@ -132,7 +132,7 @@ jobs:
       - name: POST duplicate email should return 400
         run: |
           STATUS=$(curl -s -o /tmp/res.json -w "%{http_code}" \
-            -X POST http://localhost:8083/api/employees \
+            -X POST http://localhost:8080/api/employees \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "name=Another+User&email=test.user@example.com&department=HR&salary=40000")
           BODY=$(cat /tmp/res.json)
