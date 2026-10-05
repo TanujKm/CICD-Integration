@@ -178,8 +178,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=pdlc-employee-demo
-            -Dsonar.organization=${{ vars.SONAR_ORG }}
+            -Dsonar.projectKey=tanujkm
+            -Dsonar.organization=tanujkm
             -Dsonar.java.binaries=target/classes
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
             -Dsonar.qualitygate.wait=true
@@ -319,7 +319,7 @@ jobs:
           else
             echo "jira_configured=true" >> $GITHUB_OUTPUT
           fi
-          
+
 
       - name: Create jira bug
         if: steps.check-jira.outputs.jira_configured == 'true'
