@@ -10,23 +10,21 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Selenium E2E test — Employee List page.
- * Maps to the "Automated Regression (E2E)" gate in Section 5 of the
- * PDLC & CI/CD Quality Integration Model, and directly showcases the
- * tester's own Selenium + Java skillset.
- */
 class EmployeeListPageSeleniumTest {
 
     private static WebServer server;
     private WebDriver driver;
+    private WebDriverWait wait;
 
     @BeforeAll
     static void startServer() throws IOException {
@@ -48,7 +46,10 @@ class EmployeeListPageSeleniumTest {
     void setUpDriver() {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
         driver = new ChromeDriver(options);
+        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
 
     @AfterEach
@@ -62,6 +63,10 @@ class EmployeeListPageSeleniumTest {
     void testEmployeeListPageShowsSeededEmployees() {
         driver.get("http://localhost:8081/");
 
+        // wait until at least 2 rows are present — JS fetch may take a moment
+        wait.until(ExpectedConditions.numberOfElementsToBeMoreThan(
+                By.className("employee-row"), 1));
+
         List<WebElement> rows = driver.findElements(By.className("employee-row"));
 
         assertEquals(2, rows.size());
@@ -71,12 +76,9 @@ class EmployeeListPageSeleniumTest {
     void testEmployeeListPageHasCorrectHeading() {
         driver.get("http://localhost:8081/");
 
-        WebElement heading = driver.findElement(By.tagName("h1"));
+        WebElement heading = wait.until(
+                ExpectedConditions.visibilityOfElementLocated(By.tagName("h1")));
 
         assertTrue(heading.getText().contains("Employee List"));
     }
 }
-
-
-
-
