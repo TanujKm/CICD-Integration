@@ -178,7 +178,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=tanujkm
+            -Dsonar.projectKey=TanujKm_CICD-Integration
             -Dsonar.organization=tanujkm
             -Dsonar.java.binaries=target/classes
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
