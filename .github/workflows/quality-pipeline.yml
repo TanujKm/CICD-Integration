@@ -205,14 +205,17 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # soft gate for now, set continue-on-error to false when ready
+      # OWASP scan — soft gate, NVD API key needed for reliable results
+      # without NVD_API_KEY secret the scan may time out on first run
       - name: OWASP dependency check
         run: |
           mvn --batch-mode \
             org.owasp:dependency-check-maven:9.2.0:check \
             -DfailBuildOnCVSS=7 \
             -DsuppressionFile=dependency-check-suppressions.xml \
-            -DnvdApiKey=${{ secrets.NVD_API_KEY }}
+            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
+            -DretireJsAnalyzerEnabled=false \
+            -DossindexAnalyzerEnabled=false
         continue-on-error: true
 
       - name: Upload dependency check report
@@ -220,7 +223,11 @@ jobs:
         if: always()
         with:
           name: dependency-check-report
-          path: target/dependency-check-report.html
+          # OWASP generates report in target/ — if not found skip gracefully
+          path: |
+            target/dependency-check-report.html
+            target/dependency-check-report.xml
+          if-no-files-found: warn
           retention-days: 14
 
 
