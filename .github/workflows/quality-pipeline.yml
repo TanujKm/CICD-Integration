@@ -294,14 +294,18 @@ jobs:
 
       - name: Jira transition to Ready for UAT
         if: ${{ vars.JIRA_ISSUE_KEY != '' }}
-        uses: atlassian/gajira-transition@v3
-        with:
-          issue: ${{ vars.JIRA_ISSUE_KEY }}
-          transition: "Ready for UAT"
+        uses: atlassian/gajira-login@v3
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      - name: Transition Jira issue
+        if: ${{ vars.JIRA_ISSUE_KEY != '' }}
+        uses: atlassian/gajira-transition@v3
+        with:
+          issue: ${{ vars.JIRA_ISSUE_KEY }}
+          transition: "Ready for UAT"
 
 
   # Stage 7 - auto create jira bug if anything fails
@@ -327,6 +331,13 @@ jobs:
             echo "jira_configured=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Login to Jira
+        if: steps.check-jira.outputs.jira_configured == 'true'
+        uses: atlassian/gajira-login@v3
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
       - name: Create jira bug
         if: steps.check-jira.outputs.jira_configured == 'true'
