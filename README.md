@@ -80,7 +80,7 @@ mvn compile exec:java -Dexec.mainClass="com.pdlc.demo.web.WebServer"
    - `mvn test -Dtest='!*SeleniumTest'` (unit test + coverage gate)
    - `browser-actions/setup-chrome` → `mvn verify` (adds Selenium regression gate)
 3. Add SonarCloud (`sonar-maven-plugin`) once account/token is available.
-4. Add Jira auto bug-creation/status-transition once Jira access is available.
+4. Add Jira auto bug-creation/status-transition once Jira access is available..
 5. **Demo flow for the lead:**
    - Show the pipeline passing end-to-end.
    - Break `EmployeeServiceTest.java` on purpose → show it failing.
