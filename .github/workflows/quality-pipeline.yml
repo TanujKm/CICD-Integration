@@ -442,10 +442,7 @@ jobs:
       # link new task to original jira issue via REST API (Relates to)
       # gajira-create does not support issue links directly so we use curl
       - name: Link task to original Jira issue
-        if: |
-          steps.check.outputs.configured == 'true' &&
-          needs.extract-jira-key.outputs.key_found == 'true' &&
-          steps.create-issue.outputs.issue != ''
+        if: steps.check.outputs.configured == 'true' && needs.extract-jira-key.outputs.key_found == 'true' && steps.create-issue.outputs.issue != ''
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
