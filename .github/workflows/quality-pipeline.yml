@@ -11,9 +11,77 @@ env:
 
 jobs:
 
+  # extract jira issue key from branch name, PR title, or commit message
+  # order: branch -> PR title -> commit message (first match wins)
+  extract-jira-key:
+    runs-on: ubuntu-latest
+    outputs:
+      jira_key: ${{ steps.extract.outputs.jira_key }}
+      key_found: ${{ steps.extract.outputs.key_found }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Jira key
+        id: extract
+        env:
+          BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          KEY=""
+
+          # try branch name first
+          KEY=$(echo "$BRANCH" | grep -oE '[A-Z]+-[0-9]+' | head -1 || true)
+
+          # try PR title if branch had no key
+          if [ -z "$KEY" ] && [ -n "$PR_TITLE" ]; then
+            KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -1 || true)
+          fi
+
+          # try commit message last
+          if [ -z "$KEY" ] && [ -n "$COMMIT_MSG" ]; then
+            KEY=$(echo "$COMMIT_MSG" | grep -oE '[A-Z]+-[0-9]+' | head -1 || true)
+          fi
+
+          if [ -n "$KEY" ]; then
+            echo "found jira key: $KEY"
+            echo "jira_key=$KEY" >> $GITHUB_OUTPUT
+            echo "key_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "warning: no jira key found in branch name, PR title, or commit message"
+            echo "jira_key=" >> $GITHUB_OUTPUT
+            echo "key_found=false" >> $GITHUB_OUTPUT
+          fi
+
+
+  # warn on PR if no jira key found — enforces naming convention
+  # only runs on pull_request events, skipped on push
+  check-jira-key:
+    runs-on: ubuntu-latest
+    needs: extract-jira-key
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Check key present
+        env:
+          KEY_FOUND: ${{ needs.extract-jira-key.outputs.key_found }}
+        run: |
+          if [ "$KEY_FOUND" != "true" ]; then
+            echo "warning: Jira key not found in branch name, PR title, or commit message"
+            echo "please name your branch like: feature/QA-123-description"
+            echo "or include the key in your PR title: QA-123 fix login issue"
+            # warning only — not failing the pipeline
+            # change exit 1 here if you want to enforce this as a hard gate
+          else
+            echo "Jira key found — ok"
+          fi
+
+
   # Stage 1 - lint and build
   lint-and-build:
     runs-on: ubuntu-latest
+    needs: extract-jira-key
 
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +139,6 @@ jobs:
 
 
   # Stage 2.5 - API integration tests using curl
-  # starts the embedded server and hits the endpoints directly
   integration-tests:
     runs-on: ubuntu-latest
     needs: unit-tests
@@ -89,14 +156,13 @@ jobs:
       - name: Build jar
         run: mvn --batch-mode package -DskipTests
 
-      - name: Start server on port 8083
+      - name: Start server on port 8080
         run: |
           JAR=$(ls target/*.jar | head -1)
-          echo "Starting server using JAR: $JAR"
+          echo "starting server: $JAR"
           java -jar $JAR &
           echo "SERVER_PID=$!" >> $GITHUB_ENV
           sleep 3
-          echo "Server started"
 
       - name: Wait for server
         run: |
@@ -150,7 +216,6 @@ jobs:
 
 
   # Stage 3 - static analysis via SonarCloud
-  # needs SONAR_TOKEN and SONAR_ORG in repo secrets/variables
   static-analysis:
     runs-on: ubuntu-latest
     needs: integration-tests
@@ -190,7 +255,6 @@ jobs:
 
 
   # Stage 4 - dependency security scan (OWASP)
-  # runs parallel with stage 3
   security-scan:
     runs-on: ubuntu-latest
     needs: integration-tests
@@ -205,8 +269,6 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # OWASP scan — soft gate, NVD API key needed for reliable results
-      # without NVD_API_KEY secret the scan may time out on first run
       - name: OWASP dependency check
         run: |
           mvn --batch-mode \
@@ -223,7 +285,6 @@ jobs:
         if: always()
         with:
           name: dependency-check-report
-          # OWASP generates report in target/ — if not found skip gracefully
           path: |
             target/dependency-check-report.html
             target/dependency-check-report.xml
@@ -263,10 +324,10 @@ jobs:
           retention-days: 14
 
 
-  # Stage 6 - deploy to staging (main branch only)
+  # Stage 6 - deploy to staging + jira comment and transition on pass
   deploy-staging:
     runs-on: ubuntu-latest
-    needs: e2e-tests
+    needs: [ e2e-tests, extract-jira-key ]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
@@ -282,7 +343,7 @@ jobs:
       - name: Build jar
         run: mvn --batch-mode package -DskipTests
 
-      # replace this with actual deploy command when staging server is ready
+      # replace with real deploy command when staging server is ready
       - name: Deploy to staging
         run: |
           echo "deploying to staging..."
@@ -292,26 +353,47 @@ jobs:
       - name: Smoke test
         run: echo "smoke test passed"
 
-      - name: Jira transition to Ready for UAT
-        if: ${{ vars.JIRA_ISSUE_KEY != '' }}
+      # add build link comment to jira issue on successful deploy
+      - name: Login to Jira
+        if: needs.extract-jira-key.outputs.key_found == 'true' && secrets.JIRA_API_TOKEN != ''
         uses: atlassian/gajira-login@v3
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
-      - name: Transition Jira issue
-        if: ${{ vars.JIRA_ISSUE_KEY != '' }}
+      - name: Comment on Jira issue - pipeline passed
+        if: needs.extract-jira-key.outputs.key_found == 'true' && secrets.JIRA_API_TOKEN != ''
+        uses: atlassian/gajira-comment@v3
+        with:
+          issue: ${{ needs.extract-jira-key.outputs.jira_key }}
+          comment: |
+            Pipeline passed on branch ${{ github.ref_name }}
+            Build: ${{ github.run_number }}
+            Commit: ${{ github.sha }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      # transition issue to Ready for UAT
+      # if transition fails (e.g. already in that status) we log and skip — don't fail pipeline
+      - name: Transition Jira issue to Ready for UAT
+        if: needs.extract-jira-key.outputs.key_found == 'true' && secrets.JIRA_API_TOKEN != ''
         uses: atlassian/gajira-transition@v3
         with:
-          issue: ${{ vars.JIRA_ISSUE_KEY }}
+          issue: ${{ needs.extract-jira-key.outputs.jira_key }}
           transition: "Ready for UAT"
+        continue-on-error: true
+
+      - name: Jira steps skipped
+        if: needs.extract-jira-key.outputs.key_found != 'true'
+        run: echo "warning: no jira key found — skipping jira comment and transition"
 
 
-  # Stage 7 - auto create jira bug if anything fails
+  # Stage 7 - auto create jira task on pipeline failure
+  # links to extracted jira key via REST API if available
   jira-on-failure:
     runs-on: ubuntu-latest
     needs:
+      - extract-jira-key
       - lint-and-build
       - unit-tests
       - integration-tests
@@ -321,43 +403,73 @@ jobs:
     if: failure()
 
     steps:
-      - name: Check if jira is configured
-        id: check-jira
+      - name: Check jira configured
+        id: check
+        env:
+          TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
-          if [ -z "${{ secrets.JIRA_API_TOKEN }}" ]; then
-            echo "jira_configured=false" >> $GITHUB_OUTPUT
-            echo "jira not configured, skipping"
+          if [ -z "$TOKEN" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "warning: JIRA_API_TOKEN not set — skipping jira bug creation"
           else
-            echo "jira_configured=true" >> $GITHUB_OUTPUT
+            echo "configured=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Login to Jira
-        if: steps.check-jira.outputs.jira_configured == 'true'
+        if: steps.check.outputs.configured == 'true'
         uses: atlassian/gajira-login@v3
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
-      - name: Create jira bug
-        if: steps.check-jira.outputs.jira_configured == 'true'
+      - name: Create Jira task for pipeline failure
+        if: steps.check.outputs.configured == 'true'
+        id: create-issue
         uses: atlassian/gajira-create@v3
         with:
           project: ${{ vars.JIRA_PROJECT_KEY }}
           issuetype: Task
           summary: "pipeline failed on ${{ github.ref_name }} - ${{ github.sha }}"
           description: |
-            pipeline failed automatically
-
-
+            Pipeline failed automatically.
 
             branch: ${{ github.ref_name }}
             commit: ${{ github.sha }}
             triggered by: ${{ github.actor }}
             run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      # link new task to original jira issue via REST API (Relates to)
+      # gajira-create does not support issue links directly so we use curl
+      - name: Link task to original Jira issue
+        if: |
+          steps.check.outputs.configured == 'true' &&
+          needs.extract-jira-key.outputs.key_found == 'true' &&
+          steps.create-issue.outputs.issue != ''
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          NEW_ISSUE: ${{ steps.create-issue.outputs.issue }}
+          PARENT_ISSUE: ${{ needs.extract-jira-key.outputs.jira_key }}
+        run: |
+          echo "linking $NEW_ISSUE to $PARENT_ISSUE via Relates to"
+          RESPONSE=$(curl -s -o /tmp/link_res.json -w "%{http_code}" \
+            -X POST "$JIRA_BASE_URL/rest/api/3/issueLink" \
+            -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"type\": { \"name\": \"Relates\" },
+              \"inwardIssue\": { \"key\": \"$NEW_ISSUE\" },
+              \"outwardIssue\": { \"key\": \"$PARENT_ISSUE\" }
+            }")
+          echo "link api response: $RESPONSE"
+          if [ "$RESPONSE" != "201" ]; then
+            echo "warning: could not link issues (status $RESPONSE) — bug was still created"
+          else
+            echo "issues linked successfully"
+          fi
 
-
+      - name: No jira key found warning
+        if: steps.check.outputs.configured == 'true' && needs.extract-jira-key.outputs.key_found != 'true'
+        run: echo "warning: jira key not found — bug created without link to parent issue"
