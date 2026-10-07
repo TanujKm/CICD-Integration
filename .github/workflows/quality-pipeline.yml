@@ -427,7 +427,7 @@ jobs:
         uses: atlassian/gajira-create@v3
         with:
           project: ${{ vars.JIRA_PROJECT_KEY }}
-          issuetype: Task
+          issuetype: Bug
           summary: "pipeline failed on ${{ github.ref_name }} - ${{ github.sha }}"
           description: |
             Pipeline failed automatically.
