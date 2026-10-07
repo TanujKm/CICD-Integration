@@ -23,7 +23,7 @@ This is a standard **layered architecture** (model → repository → service
 dependency-light (JDK's built-in HTTP server, no framework) so it builds
 without needing network access to pull in a full framework.
 .....
-
+....
 
 ## Features
 
