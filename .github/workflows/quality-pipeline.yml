@@ -386,8 +386,9 @@ jobs:
         run: echo 'warning no jira key found - skipping jira comment and transition'
 
 
-  # Stage 7 - auto create jira task on pipeline failure
-  # links to extracted jira key via REST API if available
+  # Stage 7 - auto create jira bug on pipeline failure
+  # duplicate check: agar same tracking label ka open bug already hai to naya mat banao
+  # link: sirf CREATE_BUG=true hone par Relates link lagao
   jira-on-failure:
     runs-on: ubuntu-latest
     needs:
@@ -408,63 +409,311 @@ jobs:
         run: |
           if [ -z "$TOKEN" ]; then
             echo "configured=false" >> $GITHUB_OUTPUT
-            echo "warning: JIRA_API_TOKEN not set — skipping jira bug creation"
+            echo "warning: JIRA_API_TOKEN not set - skipping jira bug creation"
           else
             echo "configured=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Login to Jira
+      - name: Build tracking label and title
+        id: meta
         if: steps.check.outputs.configured == 'true'
+        env:
+          JIRA_KEY: ${{ needs.extract-jira-key.outputs.jira_key }}
+          KEY_FOUND: ${{ needs.extract-jira-key.outputs.key_found }}
+          BRANCH_RAW: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_NUM: ${{ github.run_number }}
+          SHA: ${{ github.sha }}
+        run: |
+          # sanitize branch: replace anything not alphanumeric/dash/underscore with dash
+          BRANCH_CLEAN=$(echo "$BRANCH_RAW" | sed 's/[^A-Za-z0-9_-]/-/g')
+
+          # tracking label: ci-<KEY> if key found, else ci-<sanitized branch>
+          if [ "$KEY_FOUND" = "true" ]; then
+            TRACKING_LABEL="ci-${JIRA_KEY}"
+          else
+            TRACKING_LABEL="ci-${BRANCH_CLEAN}"
+          fi
+
+          # short sha (7 chars)
+          SHORT_SHA="${SHA:0:7}"
+
+          # title
+          if [ "$KEY_FOUND" = "true" ]; then
+            TITLE="[CI Failure] ${JIRA_KEY}: ${WORKFLOW} failed (#${RUN_NUM}, ${SHORT_SHA})"
+          else
+            TITLE="[CI Failure] ${BRANCH_CLEAN}: ${WORKFLOW} failed (#${RUN_NUM}, ${SHORT_SHA})"
+          fi
+
+          echo "tracking_label=$TRACKING_LABEL" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "branch_clean=$BRANCH_CLEAN" >> $GITHUB_OUTPUT
+
+      - name: Duplicate bug check via Jira JQL
+        id: dup_check
+        if: steps.check.outputs.configured == 'true'
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          TRACKING_LABEL: ${{ steps.meta.outputs.tracking_label }}
+        run: |
+          JQL="labels = \"${TRACKING_LABEL}\" AND statusCategory != Done"
+          PAYLOAD=$(jq -n --arg jql "$JQL" '{"jql": $jql, "maxResults": 1, "fields": ["summary","status"]}')
+
+          HTTP_STATUS=$(curl -s -o /tmp/dup_res.json -w "%{http_code}" \
+            -X POST "${JIRA_BASE_URL}/rest/api/3/search/jql" \
+            -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          echo "jql search status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "warning: duplicate check returned $HTTP_STATUS - will create new bug anyway"
+            echo "create_bug=true" >> $GITHUB_OUTPUT
+            echo "existing_key=" >> $GITHUB_OUTPUT
+          else
+            TOTAL=$(jq '.total' /tmp/dup_res.json)
+            if [ "$TOTAL" -gt "0" ]; then
+              EXISTING=$(jq -r '.issues[0].key' /tmp/dup_res.json)
+              echo "open bug already exists: $EXISTING - will comment instead of creating new"
+              echo "create_bug=false" >> $GITHUB_OUTPUT
+              echo "existing_key=$EXISTING" >> $GITHUB_OUTPUT
+            else
+              echo "no open bug found - will create new bug"
+              echo "create_bug=true" >> $GITHUB_OUTPUT
+              echo "existing_key=" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Comment on existing bug - failed again
+        if: steps.check.outputs.configured == 'true' && steps.dup_check.outputs.create_bug == 'false'
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          EXISTING_KEY: ${{ steps.dup_check.outputs.existing_key }}
+          RUN_NUM: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$(jq -n \
+            --arg run_num "$RUN_NUM" \
+            --arg run_url "$RUN_URL" \
+            '{
+              "body": {
+                "type": "doc",
+                "version": 1,
+                "content": [{
+                  "type": "paragraph",
+                  "content": [{
+                    "type": "text",
+                    "text": ("Failed again, run #" + $run_num + " - " + $run_url)
+                  }]
+                }]
+              }
+            }')
+
+          HTTP=$(curl -s -o /tmp/comment_res.json -w "%{http_code}" \
+            -X POST "${JIRA_BASE_URL}/rest/api/3/issue/${EXISTING_KEY}/comment" \
+            -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+
+          if [ "$HTTP" != "201" ]; then
+            echo "warning: comment failed with status $HTTP"
+          else
+            echo "commented on existing bug $EXISTING_KEY"
+          fi
+
+      - name: Login to Jira
+        if: steps.check.outputs.configured == 'true' && steps.dup_check.outputs.create_bug == 'true'
         uses: atlassian/gajira-login@v3
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
-      - name: Create Jira task for pipeline failure
-        if: steps.check.outputs.configured == 'true'
-        id: create-issue
+      - name: Build failed jobs list
+        id: failed_jobs
+        if: steps.check.outputs.configured == 'true' && steps.dup_check.outputs.create_bug == 'true'
+        env:
+          R_LINT: ${{ needs.lint-and-build.result }}
+          R_UNIT: ${{ needs.unit-tests.result }}
+          R_INTEG: ${{ needs.integration-tests.result }}
+          R_STATIC: ${{ needs.static-analysis.result }}
+          R_SEC: ${{ needs.security-scan.result }}
+          R_E2E: ${{ needs.e2e-tests.result }}
+        run: |
+          FAILED=""
+          [ "$R_LINT" = "failure" ] && FAILED="$FAILED lint-and-build"
+          [ "$R_UNIT" = "failure" ] && FAILED="$FAILED unit-tests"
+          [ "$R_INTEG" = "failure" ] && FAILED="$FAILED integration-tests"
+          [ "$R_STATIC" = "failure" ] && FAILED="$FAILED static-analysis"
+          [ "$R_SEC" = "failure" ] && FAILED="$FAILED security-scan"
+          [ "$R_E2E" = "failure" ] && FAILED="$FAILED e2e-tests"
+          FAILED=$(echo "$FAILED" | xargs)
+          echo "failed_jobs=$FAILED" >> $GITHUB_OUTPUT
+
+      - name: Create Jira bug for pipeline failure
+        if: steps.check.outputs.configured == 'true' && steps.dup_check.outputs.create_bug == 'true'
+        id: create-bug
         uses: atlassian/gajira-create@v3
         with:
           project: ${{ vars.JIRA_PROJECT_KEY }}
           issuetype: Bug
-          summary: "pipeline failed on ${{ github.ref_name }} - ${{ github.sha }}"
+          summary: ${{ steps.meta.outputs.title }}
           description: |
             Pipeline failed automatically.
 
-            branch: ${{ github.ref_name }}
-            commit: ${{ github.sha }}
-            triggered by: ${{ github.actor }}
-            run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Failed jobs: ${{ steps.failed_jobs.outputs.failed_jobs }}
+            Branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+            Commit: ${{ github.sha }}
+            Commit message: ${{ github.event.head_commit.message }}
+            Author: ${{ github.actor }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          fields: '{"labels": ["ci-failure", "automated", "${{ steps.meta.outputs.tracking_label }}"]}'
 
-      # link new task to original jira issue via REST API (Relates to)
-      # gajira-create does not support issue links directly so we use curl
-      - name: Link task to original Jira issue
-        if: steps.check.outputs.configured == 'true' && needs.extract-jira-key.outputs.key_found == 'true' && steps.create-issue.outputs.issue != ''
+      - name: Link bug to original Jira issue via Relates
+        if: steps.check.outputs.configured == 'true' && steps.dup_check.outputs.create_bug == 'true' && needs.extract-jira-key.outputs.key_found == 'true' && steps.create-bug.outputs.issue != ''
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          NEW_ISSUE: ${{ steps.create-issue.outputs.issue }}
+          NEW_ISSUE: ${{ steps.create-bug.outputs.issue }}
           PARENT_ISSUE: ${{ needs.extract-jira-key.outputs.jira_key }}
         run: |
-          echo "linking $NEW_ISSUE to $PARENT_ISSUE via Relates to"
-          RESPONSE=$(curl -s -o /tmp/link_res.json -w "%{http_code}" \
-            -X POST "$JIRA_BASE_URL/rest/api/3/issueLink" \
-            -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+          PAYLOAD=$(jq -n \
+            --arg new_key "$NEW_ISSUE" \
+            --arg parent_key "$PARENT_ISSUE" \
+            '{
+              "type": {"name": "Relates"},
+              "inwardIssue": {"key": $new_key},
+              "outwardIssue": {"key": $parent_key}
+            }')
+
+          HTTP=$(curl -s -o /tmp/link_res.json -w "%{http_code}" \
+            -X POST "${JIRA_BASE_URL}/rest/api/3/issueLink" \
+            -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"type\": { \"name\": \"Relates\" },
-              \"inwardIssue\": { \"key\": \"$NEW_ISSUE\" },
-              \"outwardIssue\": { \"key\": \"$PARENT_ISSUE\" }
-            }")
-          echo "link api response: $RESPONSE"
-          if [ "$RESPONSE" != "201" ]; then
-            echo "warning: could not link issues (status $RESPONSE) — bug was still created"
+            -d "$PAYLOAD")
+
+          if [ "$HTTP" != "201" ]; then
+            echo "warning: issue link failed with status $HTTP - bug was still created"
           else
-            echo "issues linked successfully"
+            echo "linked $NEW_ISSUE to $PARENT_ISSUE"
           fi
 
-      - name: No jira key found warning
+      - name: No jira key warning
         if: steps.check.outputs.configured == 'true' && needs.extract-jira-key.outputs.key_found != 'true'
         run: echo 'warning jira key not found - bug created without link to parent issue'
+
+
+  # jira-on-pass: comment "Fixed in build #N" on open tracking-label bug when pipeline passes
+  # separate job so it runs on all branches (not just main like deploy-staging)
+  jira-on-pass:
+    runs-on: ubuntu-latest
+    needs:
+      - extract-jira-key
+      - e2e-tests
+    if: success()
+
+    steps:
+      - name: Check jira configured
+        id: check
+        env:
+          TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build tracking label
+        id: meta
+        if: steps.check.outputs.configured == 'true'
+        env:
+          JIRA_KEY: ${{ needs.extract-jira-key.outputs.jira_key }}
+          KEY_FOUND: ${{ needs.extract-jira-key.outputs.key_found }}
+          BRANCH_RAW: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+        run: |
+          BRANCH_CLEAN=$(echo "$BRANCH_RAW" | sed 's/[^A-Za-z0-9_-]/-/g')
+          if [ "$KEY_FOUND" = "true" ]; then
+            echo "tracking_label=ci-${JIRA_KEY}" >> $GITHUB_OUTPUT
+          else
+            echo "tracking_label=ci-${BRANCH_CLEAN}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Find open bug with tracking label
+        id: find_bug
+        if: steps.check.outputs.configured == 'true'
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          TRACKING_LABEL: ${{ steps.meta.outputs.tracking_label }}
+        run: |
+          JQL="labels = \"${TRACKING_LABEL}\" AND statusCategory != Done"
+          PAYLOAD=$(jq -n --arg jql "$JQL" '{"jql": $jql, "maxResults": 1, "fields": ["summary"]}')
+
+          HTTP=$(curl -s -o /tmp/find_res.json -w "%{http_code}" \
+            -X POST "${JIRA_BASE_URL}/rest/api/3/search/jql" \
+            -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          if [ "$HTTP" != "200" ]; then
+            echo "warning: bug search returned $HTTP - skipping fixed comment"
+            echo "bug_key=" >> $GITHUB_OUTPUT
+          else
+            TOTAL=$(jq '.total' /tmp/find_res.json)
+            if [ "$TOTAL" -gt "0" ]; then
+              BUG_KEY=$(jq -r '.issues[0].key' /tmp/find_res.json)
+              echo "found open bug: $BUG_KEY"
+              echo "bug_key=$BUG_KEY" >> $GITHUB_OUTPUT
+            else
+              echo "no open bug found for label $TRACKING_LABEL - nothing to comment on"
+              echo "bug_key=" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Comment fixed on open bug
+        if: steps.check.outputs.configured == 'true' && steps.find_bug.outputs.bug_key != ''
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          BUG_KEY: ${{ steps.find_bug.outputs.bug_key }}
+          RUN_NUM: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$(jq -n \
+            --arg run_num "$RUN_NUM" \
+            --arg run_url "$RUN_URL" \
+            '{
+              "body": {
+                "type": "doc",
+                "version": 1,
+                "content": [{
+                  "type": "paragraph",
+                  "content": [{
+                    "type": "text",
+                    "text": ("Fixed in build #" + $run_num + " - " + $run_url)
+                  }]
+                }]
+              }
+            }')
+
+          HTTP=$(curl -s -o /tmp/fixed_res.json -w "%{http_code}" \
+            -X POST "${JIRA_BASE_URL}/rest/api/3/issue/${BUG_KEY}/comment" \
+            -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+
+          if [ "$HTTP" != "201" ]; then
+            echo "warning: fixed comment failed with status $HTTP"
+          else
+            echo "commented Fixed in build #${RUN_NUM} on $BUG_KEY"
+          fi
