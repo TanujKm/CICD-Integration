@@ -355,7 +355,7 @@ jobs:
 
       # add build link comment to jira issue on successful deploy
       - name: Login to Jira
-        if: needs.extract-jira-key.outputs.key_found == 'true' && secrets.JIRA_API_TOKEN != ''
+        if: needs.extract-jira-key.outputs.key_found == 'true'
         uses: atlassian/gajira-login@v3
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
@@ -363,7 +363,7 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
       - name: Comment on Jira issue - pipeline passed
-        if: needs.extract-jira-key.outputs.key_found == 'true' && secrets.JIRA_API_TOKEN != ''
+        if: needs.extract-jira-key.outputs.key_found == 'true'
         uses: atlassian/gajira-comment@v3
         with:
           issue: ${{ needs.extract-jira-key.outputs.jira_key }}
@@ -373,10 +373,8 @@ jobs:
             Commit: ${{ github.sha }}
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-      # transition issue to Ready for UAT
-      # if transition fails (e.g. already in that status) we log and skip — don't fail pipeline
       - name: Transition Jira issue to Ready for UAT
-        if: needs.extract-jira-key.outputs.key_found == 'true' && secrets.JIRA_API_TOKEN != ''
+        if: needs.extract-jira-key.outputs.key_found == 'true'
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ needs.extract-jira-key.outputs.jira_key }}
