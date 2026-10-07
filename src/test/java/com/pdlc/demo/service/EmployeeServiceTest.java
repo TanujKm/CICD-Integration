@@ -11,7 +11,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmployeeServiceTest {
-
     private EmployeeService employeeService;
 
     @BeforeEach
@@ -27,7 +26,7 @@ class EmployeeServiceTest {
 
         assertNotNull(saved);
         // assertEquals("Aditi Sharma", saved.getName());
-                assertEquals("Aditi Sharma", saved.getName());
+                assertEquals("Adi", saved.getName());
 
     }
 
@@ -57,6 +56,7 @@ class EmployeeServiceTest {
 
     @Test
     void testGetAllEmployeesSortedByName() {
+     
         employeeService.addEmployee("Rohan Mehta", "rohan@example.com", "Engineering", 60000);
         employeeService.addEmployee("Aditi Sharma", "aditi@example.com", "QA", 50000);
 

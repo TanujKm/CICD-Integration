@@ -28,7 +28,7 @@ class EmployeeServiceBonusCalculationTest {
 
     @Test
     void testCalculateBonusAtZeroPercent() {
-        Employee employee = new Employee(1, "Adi", "aditi@example.com", "QA", 50000);
+        Employee employee = new Employee(1, "Aditi Sharma", "aditi@example.com", "QA", 50000);
 
         double bonus = employeeService.calculateAnnualBonus(employee, 0);
 
