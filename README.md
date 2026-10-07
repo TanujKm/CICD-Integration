@@ -87,7 +87,7 @@ mvn compile exec:java -Dexec.mainClass="com.pdlc.demo.web.WebServer"
    - Fix it → show it passing.
    - Break `AddEmployeePageSeleniumTest.java` (e.g. change expected text)
      → show the E2E gate catching it too — this is the moment that
-     showcases the Selenium skillset specifically..
+     showcases the Selenium skillset specifically.
 
 ## Why this project
 
