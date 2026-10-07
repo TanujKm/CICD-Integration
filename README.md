@@ -90,7 +90,7 @@ mvn compile exec:java -Dexec.mainClass="com.pdlc.demo.web.WebServer"
      showcases the Selenium skillset specifically.
 .
 ## Why this project
-.
+..
 - Layered, realistic structure (not a single-file script) — looks and
   reads like an actual small company application.
 - 7 test files spanning unit, business-rule, and E2E/Selenium layers —
