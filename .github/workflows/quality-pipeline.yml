@@ -385,7 +385,7 @@ jobs:
 
       - name: Jira steps skipped
         if: needs.extract-jira-key.outputs.key_found != 'true'
-        run: echo "warning: no jira key found - skipping jira comment and transition"
+        run: echo 'warning no jira key found - skipping jira comment and transition'
 
 
   # Stage 7 - auto create jira task on pipeline failure
@@ -469,4 +469,4 @@ jobs:
 
       - name: No jira key found warning
         if: steps.check.outputs.configured == 'true' && needs.extract-jira-key.outputs.key_found != 'true'
-        run: echo "warning: jira key not found — bug created without link to parent issue"
+        run: echo 'warning jira key not found - bug created without link to parent issue'
