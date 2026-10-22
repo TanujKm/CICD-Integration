@@ -599,13 +599,12 @@ jobs:
               "body": {
                 "type": "doc",
                 "version": 1,
-                "content": [{
-                  "type": "paragraph",
-                  "content": [{
-                    "type": "text",
-                    "text": ("Pipeline passed on branch " + $ref + " - Build #" + $run_num + " - Commit " + $sha + " - " + $run_url)
-                  }]
-                }]
+                "content": [
+                  {"type": "paragraph", "content": [{"type": "text", "text": ("Pipeline passed on branch " + $ref)}]},
+                  {"type": "paragraph", "content": [{"type": "text", "text": ("Build: #" + $run_num)}]},
+                  {"type": "paragraph", "content": [{"type": "text", "text": ("Commit: " + $sha)}]},
+                  {"type": "paragraph", "content": [{"type": "text", "text": "Run: ", "marks": []}, {"type": "text", "text": $run_url, "marks": [{"type": "link", "attrs": {"href": $run_url}}]}]}
+                ]
               }
             }')
           HTTP=$(curl -s -o /tmp/pass_comment.json -w "%{http_code}" \
