@@ -632,7 +632,7 @@ jobs:
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ needs.extract-jira-key.outputs.jira_key }}
-          transition: "Ready for UAT"
+          transition: "In Review"
         continue-on-error: true
 
       - name: Build tracking label
