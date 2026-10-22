@@ -2,9 +2,9 @@ name: PDLC Quality Pipeline
 
 on:
   pull_request:
-    branches: [ main, master, develop,IIntegration  ]
+    branches: [ main, master, develop,Integration  ]
   push:
-    branches: [ main, master,IIntegration ]
+    branches: [ main, master,Integration ]
 
 env:
   JAVA_VERSION: '17'
@@ -224,7 +224,7 @@ jobs:
           fi
 
 
-  # Stage 3 - static analysis (SonarQube/SonarCloud) - future scope, pending company credentials
+  # Stage 3 - static analysis via SonarCloud  (future Scope)
 
 
   # Stage 4 - dependency security scan (OWASP)
@@ -556,7 +556,7 @@ jobs:
     needs:
       - extract-jira-key
       - e2e-tests
-    if: needs.e2e-tests.result == 'success'
+    if: success()
 
     steps:
       - name: Check jira configured
@@ -589,13 +589,12 @@ jobs:
             Commit: ${{ github.sha }}
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-
-      - name: Transition linked Jira issue to In Review
+      - name: Transition linked Jira issue to Ready for UAT
         if: steps.check.outputs.configured == 'true' && needs.extract-jira-key.outputs.key_found == 'true'
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ needs.extract-jira-key.outputs.jira_key }}
-          transition: "In Review"
+          transition: "Ready for UAT"
         continue-on-error: true
 
       - name: Build tracking label
