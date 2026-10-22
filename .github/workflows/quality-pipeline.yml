@@ -580,21 +580,50 @@ jobs:
 
       - name: Comment on linked Jira issue - pipeline passed
         if: steps.check.outputs.configured == 'true' && needs.extract-jira-key.outputs.key_found == 'true'
-        uses: atlassian/gajira-comment@v3
-        with:
-          issue: ${{ needs.extract-jira-key.outputs.jira_key }}
-          comment: |
-            Pipeline passed on branch ${{ github.ref_name }}
-            Build: ${{ github.run_number }}
-            Commit: ${{ github.sha }}
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          ISSUE_KEY: ${{ needs.extract-jira-key.outputs.jira_key }}
+          RUN_NUM: ${{ github.run_number }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$(jq -n \
+            --arg ref "$REF_NAME" \
+            --arg run_num "$RUN_NUM" \
+            --arg sha "$SHA" \
+            --arg run_url "$RUN_URL" \
+            '{
+              "body": {
+                "type": "doc",
+                "version": 1,
+                "content": [{
+                  "type": "paragraph",
+                  "content": [{
+                    "type": "text",
+                    "text": ("Pipeline passed on branch " + $ref + " - Build #" + $run_num + " - Commit " + $sha + " - " + $run_url)
+                  }]
+                }]
+              }
+            }')
+          HTTP=$(curl -s -o /tmp/pass_comment.json -w "%{http_code}" \
+            -X POST "${JIRA_BASE_URL}/rest/api/3/issue/${ISSUE_KEY}/comment" \
+            -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+          echo "comment status: $HTTP"
+          if [ "$HTTP" != "201" ]; then
+            echo "warning: comment failed with status $HTTP"
+          fi
 
-      - name: Transition linked Jira issue to Ready for UAT
+      - name: Transition linked Jira issue to In Review
         if: steps.check.outputs.configured == 'true' && needs.extract-jira-key.outputs.key_found == 'true'
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ needs.extract-jira-key.outputs.jira_key }}
-          transition: "Ready for UAT"
+          transition: "In Review"
         continue-on-error: true
 
       - name: Build tracking label
