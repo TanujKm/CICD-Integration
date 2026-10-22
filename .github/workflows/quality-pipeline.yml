@@ -2,9 +2,9 @@ name: PDLC Quality Pipeline
 
 on:
   pull_request:
-    branches: [ main, master, develop, IIntegration ]
+    branches: [ main, master, develop,IIntegration  ]
   push:
-    branches: [ main, master, IIntegration ]
+    branches: [ main, master,IIntegration ]
 
 env:
   JAVA_VERSION: '17'
@@ -12,12 +12,12 @@ env:
 jobs:
 
   # extract jira issue key from branch name, PR title, or commit message
-  # order: branch -> PR title -> commit message (first match wins)
   extract-jira-key:
     runs-on: ubuntu-latest
     outputs:
       jira_key: ${{ steps.extract.outputs.jira_key }}
       key_found: ${{ steps.extract.outputs.key_found }}
+
 
     steps:
       - uses: actions/checkout@v4
@@ -160,16 +160,25 @@ jobs:
         run: |
           JAR=$(ls target/*.jar | head -1)
           echo "starting server: $JAR"
-          java -jar $JAR &
+          java -jar $JAR > /tmp/server.log 2>&1 &
           echo "SERVER_PID=$!" >> $GITHUB_ENV
-          sleep 3
+          sleep 5
+          echo "server log output:"
+          cat /tmp/server.log || true
 
       - name: Wait for server
         run: |
-          for i in $(seq 1 15); do
-            if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/employees | grep -q "200"; then
-              echo "server ready"
+          for i in $(seq 1 30); do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/employees)
+            echo "attempt $i - status: $HTTP"
+            if [ "$HTTP" = "200" ]; then
+              echo "server ready after ${i}s"
               break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "server did not start in time - dumping log:"
+              cat /tmp/server.log || true
+              exit 1
             fi
             sleep 1
           done
@@ -243,8 +252,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=TanujKm_CICD-Integration
-            -Dsonar.organization=tanujkm
+            -Dsonar.projectKey=CICD-Integration
+            -Dsonar.organization=OrgName
             -Dsonar.java.binaries=target/classes
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
             -Dsonar.qualitygate.wait=true
@@ -355,7 +364,6 @@ jobs:
 
 
   # Stage 7 - auto create jira bug on pipeline failure
-  # duplicate check: agar same tracking label ka open bug already hai to naya mat banao
   # link: sirf CREATE_BUG=true hone par Relates link lagao
   jira-on-failure:
     runs-on: ubuntu-latest
