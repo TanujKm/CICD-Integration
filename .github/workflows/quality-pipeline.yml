@@ -556,7 +556,7 @@ jobs:
     needs:
       - extract-jira-key
       - e2e-tests
-    if: success()
+    if: needs.e2e-tests.result == 'success'
 
     steps:
       - name: Check jira configured
