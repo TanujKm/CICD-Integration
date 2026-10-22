@@ -671,6 +671,7 @@ jobs:
               }
             }')
 
+            
           HTTP=$(curl -s -o /tmp/fixed_res.json -w "%{http_code}" \
             -X POST "${JIRA_BASE_URL}/rest/api/3/issue/${BUG_KEY}/comment" \
             -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
@@ -682,3 +683,5 @@ jobs:
           else
             echo "commented Fixed in build #${RUN_NUM} on $BUG_KEY"
           fi
+
+
