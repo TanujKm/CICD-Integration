@@ -608,7 +608,8 @@ jobs:
                     {"type": "hardBreak"},
                     {"type": "text", "text": ("Commit: " + $sha)},
                     {"type": "hardBreak"},
-                    {"type": "text", "text": ("Run: " + $run_url)}
+                    {"type": "text", "text": "Run: "},
+                    {"type": "text", "text": $run_url, "marks": [{"type": "link", "attrs": {"href": $run_url}}]}
                   ]
                 }]
               }
