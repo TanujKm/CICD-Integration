@@ -2,9 +2,9 @@ name: PDLC Quality Pipeline
 
 on:
   pull_request:
-    branches: [ main, master, develop,Integration  ]
+    branches: [ main, master, develop,IIntegration  ]
   push:
-    branches: [ main, master,Integration ]
+    branches: [ main, master,IIntegration ]
 
 env:
   JAVA_VERSION: '17'
@@ -17,6 +17,7 @@ jobs:
     outputs:
       jira_key: ${{ steps.extract.outputs.jira_key }}
       key_found: ${{ steps.extract.outputs.key_found }}
+
 
 
     steps:
