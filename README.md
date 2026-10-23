@@ -9,6 +9,8 @@ part is added by the tester, as instructed.
 
 ## Architecture
 
+#
+
 ```
 model        -> Employee.java                (domain object)
 util         -> ValidationUtil.java           (input validation rules)
