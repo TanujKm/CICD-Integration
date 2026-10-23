@@ -26,7 +26,7 @@ class EmployeeServiceTest {
 
         assertNotNull(saved);
         // assertEquals("Aditi Sharma", saved.getName());
-                assertEquals("Adi Sharma", saved.getName());
+                assertEquals("Aditi Sharma", saved.getName());
 
     }
 
