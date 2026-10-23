@@ -73,3 +73,15 @@ class EmployeeServiceTest {
 
         assertTrue(employeeService.deleteEmployee(saved.getId()));
     }
+
+    @Test
+    void testAddSupriyaAsNewEmployee() {
+        Employee saved = employeeService.addEmployee("Supriya Patil", "supriya@example.com", "QA", 55000);
+
+        assertNotNull(saved);
+        assertEquals("Supriya Patil", saved.getName());
+        assertEquals("supriya@example.com", saved.getEmail());
+        assertEquals("QA", saved.getDepartment());
+        assertEquals(55000, saved.getSalary());
+    }
+}
